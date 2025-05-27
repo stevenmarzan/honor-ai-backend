@@ -9,7 +9,15 @@ require("dotenv").config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+
+// Conditionally apply express.json only to non-file routes
+app.use((req, res, next) => {
+  if (req.path === "/api/submit-design") {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
 
 // Configure multer for file uploads
 const upload = multer({ dest: "uploads/" });
@@ -83,7 +91,13 @@ app.post("/api/submit-design", upload.array("attachments"), async (req, res) => 
   try {
     await transporter.sendMail(mailOptions);
     await transporter.sendMail(confirmationOptions);
-    files.forEach(file => fs.unlinkSync(file.path));
+    files.forEach(file => {
+      try {
+        fs.unlinkSync(file.path);
+      } catch (err) {
+        console.warn(`Failed to delete file ${file.path}:`, err.message);
+      }
+    });
     res.json({ success: true });
   } catch (err) {
     console.error("Email error:", err);
